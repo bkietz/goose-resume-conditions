@@ -12,7 +12,7 @@ namespace ticker;
 // `time` has passed. Nothing in the shape is ticker-specific, so
 // coroutines from other packages can suspend in the same condition.
 struct TimeElapsed { time: i64 };
-fn resume<T>(task: own T, condition: suspended::awaiting<TimeElapsed>) {}
+resume if TimeElapsed ->;
 
 // Wait one period and report when it ends. Cancellation needs no protocol
 // here: the composed task is cancelled whole by the scheduler, or simply

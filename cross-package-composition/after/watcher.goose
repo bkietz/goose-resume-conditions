@@ -15,7 +15,7 @@ var conns = slot_pool<Conn> {};
 // which event woke it. Declared once, it is reused by every fd-waiting
 // coroutine -- from any package, on any scheduler that handles it.
 struct FileWontBlock { fd: i64, flags: net::Flags };
-fn resume<T>(task: own T, condition: suspended::awaiting<FileWontBlock>, event: net::Event) {}
+resume if FileWontBlock -> net::Event;
 
 // Send one request, then read the response. Returns the byte count that
 // arrived, 0 at end of stream, or -1 if the connection went away.

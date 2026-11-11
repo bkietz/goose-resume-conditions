@@ -18,8 +18,7 @@ namespace monitor;
 
 // monitor's own condition: monitor_job cannot continue until the
 // supervisor has answered; the proof carries the verdict.
-struct SupervisorAnswered {};
-fn resume<T>(task: own T, condition: suspended::awaiting<SupervisorAnswered>, stop_now: bool) {}
+resume if SupervisorAnswered -> bool;
 
 enum Status { Polling, PeerDown, Stopped }
 let poll_period_ns = 30 * 1000000000;

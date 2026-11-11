@@ -6,14 +6,14 @@ struct Conn { fd: i64, inbuf: u8[..4096] = [], outbuf: u8[..4096] = [] }
 var conns = slot_pool<Conn> {};
 
 // The protocol from coroutine to scheduler are the conditions
-// which the coroutine requires for resumption, expressed as overloads
-// of resume()
+// which the coroutine requires for resumption, expressed as resume
+// signatures: each names a condition and the proof resuming from it yields.
 
 struct FileWontBlock { fd: i64, flags: i32 };
-fn resume<T>(task: own T, condition: suspended::awaiting<FileWontBlock>, event: net::Event) {}
+resume if FileWontBlock -> net::Event;
 
 struct TimeElapsed { time: i64 };
-fn resume<T>(task: own T, condition: suspended::awaiting<TimeElapsed>) {}
+resume if TimeElapsed ->;
 
 fn fill(conn: Conn&<u32 in conns>) -> bool {
     loop {

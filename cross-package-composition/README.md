@@ -49,13 +49,13 @@ The libraries declare their suspension needs as named conditions — exported de
 
 `monitor_job` composes both with plain function calls; the libraries' internal suspensions belong to *their* conditions and reach the scheduler directly, untouched by this file:
 
-[monitor_job: the libraries as plain calls](cross-package-composition.after.goose#L30-L38)
+[monitor_job: the libraries as plain calls](cross-package-composition.after.goose#L29-L37)
 
 The scheduler's entire contract for two imported libraries plus its own suspension is one `on_suspend` overload per condition — `watcher::FileWontBlock` and `ticker::TimeElapsed` are handled exactly like `monitor`'s own `SupervisorAnswered` — and each resume site names the condition it is resuming from:
 
-[the on_suspend overload set: imported conditions alongside our own](cross-package-composition.after.goose#L54-L71)
+[the on_suspend overload set: imported conditions alongside our own](cross-package-composition.after.goose#L53-L70)
 
-[each resume site naming the condition it resumes from](cross-package-composition.after.goose#L90-L101)
+[each resume site naming the condition it resumes from](cross-package-composition.after.goose#L89-L100)
 
 ## Key takeaways
 

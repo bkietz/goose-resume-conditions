@@ -11,12 +11,12 @@ var conns = slot_pool<Conn> {};
 
 // fill cannot continue until the descriptor will not block; the proof is
 // exactly the event that woke it. A timeout cannot be delivered through
-// this wait by anyone, ever: this overload is fill's entire response
-// surface for the wait. An owned release token, where one is genuinely
-// called for, would appear in exactly one condition's overload, paid for
-// only by coroutines that suspend there.
+// this wait by anyone, ever: this resume signature is fill's entire
+// response surface for the wait. An owned release token, where one is
+// genuinely called for, would appear in exactly one condition's
+// signature, paid for only by coroutines that suspend there.
 struct FileWontBlock { fd: i64, flags: net::Flags };
-fn resume<T>(task: own T, condition: suspended::awaiting<FileWontBlock>, event: net::Event) {}
+resume if FileWontBlock -> net::Event;
 
 fn fill(c: Conn&<u32 in conns>) -> bool {
     loop {
@@ -78,7 +78,7 @@ fn run() {
             //
             //   resume<FileWontBlock>(tasks.release(t), read_id);
             //
-            // does not compile: this overload's proof is a net::Event, not
+            // does not compile: this signature's proof is a net::Event, not
             // an i64, and no Event union exists to name a Timeout variant.
             // A payload fill would never look at cannot be constructed --
             // let alone dropped in a guard comparison -- because the proof

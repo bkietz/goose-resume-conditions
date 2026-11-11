@@ -37,9 +37,12 @@ explicit, type-safe, easier to document, and better encapsulated.
 - The scheduler resumes tasks with the new built-in function `resume()`.
   The first argument is always a reference to the resumed task.
 
-- A coroutine library declares `struct`s and `enum`s to communicate
-  particular resumption requirements to the scheduler. These messages
-  are the "resume conditions" (analogs of Wait variants from the original).
+- A coroutine library declares its resumption requirements as resume
+  signatures with a syntax of their own. Each signature names a resume
+  condition -- the analog of a Wait variant from the original -- and, after
+  `->`, the type of proof resuming from it yields: `resume if MessageReceived -> u8[..140];`.
+  A condition whose suspension carries data to the scheduler keeps
+  declaring its payload as a struct.
 
 - A coroutine suspends with a `resume if` expression, which communicates
   a requirement to the scheduler then suspends. After resumption, the
@@ -50,26 +53,27 @@ explicit, type-safe, easier to document, and better encapsulated.
   The scheduler is then responsible for
   fulfilling that condition before resuming the coroutine.
 
-- For each resume condition, the coroutine library also declares an
-  overload of `resume()`. The arguments passed to `resume()` after the task
-  are the proof that the task's requirements have been met and it should
-  resume. The parameters of a `resume()` overload define the type of that proof. 
+- For each resume condition, the coroutine library also declares a resume
+  signature: `resume if MessageSent ->;`. The condition names the
+  suspension, and the type after `->` is the proof that the task's
+  requirements have been met and it should resume -- the value a call to
+  `resume()` supplies and the `resume if` expression evaluates to.
 
 - When the scheduler calls `resume()`, the condition from which the task
   is resumed is an explicit type argument at the call site. This makes it
-  obvious to readers and the type checker which `resume()` overload is intended.
+  obvious to readers and the type checker which resume signature is intended.
 
 ### Echo server example
 
 ```goose
 // coroutine library:
 
-// Two conditions which coroutines may require before resuming:
-struct MessageReceived {};
-fn resume<T>(task: own T, condition: suspended::awaiting<MessageReceived>, received: u8[..140]) {}
+// Two conditions which coroutines may require before resuming, each
+// declared by a resume signature naming the proof resuming from it yields:
+resume if MessageReceived -> u8[..140];
 
 struct MessageSent { to_send: u8[..140] };
-fn resume<T>(task: own T, condiditon: suspended::awaiting<MessageSent>) {}
+resume if MessageSent ->;
 
 // A simple coroutine which uses those conditions to asynchronously echo messages.
 fn echo() -> const u8[:] {
@@ -178,32 +182,33 @@ Likewise, each suspension point should declare the types
 relevant to itself rather than invoking the full union of
 types used by any suspension point.
 Just like a function, the types involved in a suspension point
-should be declared with a specific and documentable funciton
-signature. The entry point for resuming a coroutine is the
-`resume` built-in, so we declare its signature:
+should be declared with a specific and documentable signature. The
+entry point for resuming a coroutine is the `resume` built-in, so each
+resume condition declares a signature of its own:
 
 ```goose
-fn resume<T>(task: own T, condition: suspended::awaiting<MessageReceived>, received: u8[..140]) {}
+resume if MessageReceived -> u8[..140];
 ```
 
-`suspended::awaiting<MessageReceived>` is an empty tag used to include the
-condition in the signature. With this declaration, resume will be callable
-against any task suspended with the `MessageReceived` condition:
-`resume<MessageReceived>(task, "foo")`. `resume()` consumes the task.
+The condition names the suspension the signature governs; `->` introduces
+the proof type the way a function's return type follows it. With this
+declaration, resume will be callable against any task suspended with the
+`MessageReceived` condition: `resume<MessageReceived>(task, "foo")`.
+`resume()` consumes the task.
 
-A resume overload defines how a scheduler should resume a task suspended
+A resume signature defines how a scheduler may resume a task suspended
 with the resume condition `MessageReceived`. The `echo` coroutine
 cannot proceed until a message is received, so it suspends with
 this condition. A scheduler can only resume from this condition
 by supplying the message which the `echo` coroutine requires,
-declared in the `received` argument in this `resume()` overload.
+declared after `->` in this resume signature.
 In general, a resume signature
 shows precisely how the scheduler should resume the coroutine
 with information about how the condition was met.
 
 ```goose
 struct MessageSent { to_send: u8[..140] };
-fn resume<T>(task: own T, condiditon: suspended::awaiting<MessageSent>) {}
+resume if MessageSent ->;
 ```
 
 The resume condition in this signature is `MessageSent`. The `echo`
@@ -272,10 +277,10 @@ In this example, the parameters of `on_suspend` are:
 
 The condition argument to `on_suspend` is the analog of a Wait
 value, but it does not need to be a variant of an enum at all.
-The types declared in `resume()` and `on_suspend()` are sufficient
-to relieve the scheduler of unpacking an enum because we always
-have full type information about the condition with which the
-coroutine suspended.
+The types declared in the resume signatures and the `on_suspend()`
+handlers are sufficient to relieve the scheduler of unpacking an enum
+because we always have full type information about the condition with
+which the coroutine suspended.
 
 Note also that this doesn't constitute a function pointer
 embedded in the task. `on_suspend` is fully known to the compiler;
@@ -409,9 +414,10 @@ arguably "just" syntactic sugar for state machines. Here I'll try to
 discuss where the language features I've described could be represented
 with alternative syntax choices.
 
-- Resume conditions could be declared differently. Any declaration
-  style which includes resume()'s parameters for the condition as
-  well as the condition's payload would work.
+- Resume signatures use a dedicated syntax: `resume if MessageReceived
+  -> u8[..140];`. Any declaration style which names the condition and
+  the proof resuming from it yields would work, whether or not the
+  payload is folded into the declaration.
 
   For example the `yield_op`
   [proposal](https://discord.com/channels/1559977219663732797/1564380133714952303/1564843783810453504)
@@ -425,8 +431,10 @@ with alternative syntax choices.
   ```goose
   resume(task, received: u8[..140]) if MessageReceived {};
   ```
-  although the syntax is closer to plain English, it was abandoned
-  in favor of reusing existing declaration types.
+  although the syntax is closer to plain English, it merged the
+  condition's payload into the declaration as well. The adopted
+  signature keeps a condition's payload in its struct declaration and
+  dedicates the signature line to the resumption contract: the proof.
 
 - When calling `resume()`, the condition resumed from could be
   passed in a number of ways.
