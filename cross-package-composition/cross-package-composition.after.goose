@@ -94,10 +94,10 @@ fn run() {
             let d = timers.heap_pop();
             resume<ticker::TimeElapsed>(tasks.release(d.task));
         }
-        if awaiting_verdict != null {
-            // the supervisor answers asynchronously; here, at the next spin
-            let v = awaiting_verdict;
-            awaiting_verdict = null;
+        // the supervisor answers asynchronously; here, at the next spin
+        let v = awaiting_verdict;
+        awaiting_verdict = null;
+        if v != null {
             resume<SupervisorAnswered>(tasks.release(v), stop_requested);
         }
     }

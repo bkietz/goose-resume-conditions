@@ -23,7 +23,7 @@ The two libraries were developed independently, so each declares the `Wait`/`Eve
 
 [watcher's package-local Wait/Event pair](before/watcher.goose#L11-L12)
 
-A coroutine can only be *called* from a coroutine whose yield/resume types match its own (§4.4 of the coroutine design), so `monitor_job` cannot call `ticker::tick` or `watcher::wait_data` as they are written — their protocols don't match `monitor`'s. The composing package therefore writes, by hand:
+A coroutine call requires the callee's yield type to be the caller's (its resume type must match or be absent; §4.4 of the coroutine design), so `monitor_job` cannot call `ticker::tick` or `watcher::wait_data` as they are written — their protocols don't match `monitor`'s. The composing package therefore writes, by hand:
 
 - a third protocol of its own, a union merging what both libraries and the scheduler itself need —
 
@@ -51,7 +51,7 @@ The libraries declare their suspension needs as named conditions — exported de
 
 [monitor_job: the libraries as plain calls](cross-package-composition.after.goose#L30-L38)
 
-The scheduler's entire contract for three libraries' worth of suspension is one `on_suspend` overload per condition — `watcher::FileWontBlock` and `ticker::TimeElapsed` are handled exactly like `monitor`'s own `SupervisorAnswered` — and each resume site names the condition it is resuming from:
+The scheduler's entire contract for two imported libraries plus its own suspension is one `on_suspend` overload per condition — `watcher::FileWontBlock` and `ticker::TimeElapsed` are handled exactly like `monitor`'s own `SupervisorAnswered` — and each resume site names the condition it is resuming from:
 
 [the on_suspend overload set: imported conditions alongside our own](cross-package-composition.after.goose#L54-L71)
 

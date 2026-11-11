@@ -120,7 +120,7 @@ coro fn monitor_job(c: watcher::Conn&<u32 in watcher::conns>, period_ns: i64) ->
 // already over the merged union, where the libraries' distinctions were
 // lost in translation.
 var tasks = slot_pool<monitor_job> {};
-struct Deadline { at: i64, task: i64 }
+struct Deadline { time: i64, task: i64 }
 var by_fd: i64[>..] = [];                   // fd -> index into tasks, or -1
 var timers: Deadline[>..] = [];             // a heap of (deadline, task)
 var checkins: i64[>..<] = [];               // tasks parked at Wait.CheckIn
@@ -132,7 +132,7 @@ var stop_requested = false;                 // the supervisor's verdict (set out
 fn on_yield(i: i64, w: Wait) {
     match w {
         FdReady f => { net::watch(f.fd, f.flags); by_fd[f.fd] = i; }
-        WakeAt t  => timers.heap_push(Deadline { at: t.deadline_ns, task: i }) { l, r => l.at < r.at },
+        WakeAt t  => timers.heap_push(Deadline { time: t.deadline_ns, task: i }) { l, r => l.time < r.time },
         CheckIn   => checkins.push(i),
     }
 }
@@ -147,7 +147,14 @@ fn report(s: Status) {
 // (net is the hypothetical sockets module from the coroutine design's §5.)
 fn run() {
     let c = watcher::conns.alloc_ref(watcher::Conn { fd: net::dial("config.internal:80") });
-    resume(monitor_job { c: c, period_ns: poll_period_ns }, Event.Ready);   // the first event is unused: nothing has suspended yet
+    let i = tasks.alloc_index(monitor_job { c: c, period_ns: poll_period_ns });
+    // Every resume() call returns the Wait the task suspended on and whether
+    // it is still running -- the startup call included: a fresh task runs to
+    // its first suspension, and its Wait must be registered exactly like any
+    // other, or nobody would ever resume it again.
+    let w, suspended = resume(tasks[i], Event.Ready);   // the first event is unused: nothing has suspended yet
+    guard suspended else { report(result(tasks[i])); tasks.free(i); return; }
+    on_yield(i, w);
     loop {
         for ev in net::poll_wait() {                        // (fd, flags, hangup)
             let i = by_fd[ev.fd];
@@ -156,7 +163,7 @@ fn run() {
             guard suspended else { report(result(tasks[i])); tasks.free(i); continue; }
             on_yield(i, w);
         }
-        while timers.len > 0 && timers[0].at <= std::now_ns() {
+        while timers.len > 0 && timers[0].time <= std::now_ns() {
             let d = timers.heap_pop();
             let w, suspended = resume(tasks[d.task], Event.TimedOut);
             guard suspended else { report(result(tasks[d.task])); tasks.free(d.task); continue; }
