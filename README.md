@@ -63,12 +63,15 @@ explicit, type-safe, easier to document, and better encapsulated.
 
 ```goose
 // coroutine library:
+
+// Two conditions which coroutines may require before resuming:
 struct MessageReceived {};
 fn resume<T>(task: own T, condition: suspended::awaiting<MessageReceived>, received: u8[..140]) {}
 
 struct MessageSent { to_send: u8[..140] };
 fn resume<T>(task: own T, condiditon: suspended::awaiting<MessageSent>) {}
 
+// A simple coroutine which uses those conditions to asynchronously echo messages.
 fn echo() -> const u8[:] {
     loop {
         let received = resume if MessageReceived {};
@@ -79,9 +82,14 @@ fn echo() -> const u8[:] {
 }
 
 // scheduler:
-fn repl<MessageCoro>() {
-    let prompt = make_prompt();
+fn main() {
+    // plug the echo coroutine into a repl for testing
+    repl(echo, make_prompt());
+}
 
+// This scheduler function is generic; it can schedule any
+// message sending coroutine while exposing IO to the user.
+fn repl<MessageCoro>(prompt: UserPrompt) {
     type Task = suspended<MessageCoro>;
     var the_task = own_one<Task> {};
 
@@ -107,9 +115,6 @@ fn repl<MessageCoro>() {
     }
 }
 
-fn main() {
-    repl(echo);
-}
 ```
 
 ## Proposed improvements
