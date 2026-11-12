@@ -37,7 +37,7 @@ A coroutine call requires the callee's yield type to be the caller's (its resume
 
   [`drive_tick` and `drive_wait_data`, one adapter per imported coroutine](cross-package-composition.before.goose#L76-L100)
 
-Every adaptation is a convention this file invented: `Stop` "means" `ticker::Event.Cancelled` there and `watcher::Event.Hangup` here, because a scheduler's `Stop` arrived at a yield of a library that never asked to be stopped and something had to be picked. Adding an `Event` to `monitor` or a `Wait` variant to either library silently re-aims every one of these matches; the compiler flags nothing but non-exhaustiveness. Note also what the scheduler's own `match` in `on_yield` no longer sees: the libraries' distinctions were already lost in the `as_wait` translations.
+Every adaptation is a convention this file invented: `Stop` "means" `ticker::Event.Cancelled` there and `watcher::Event.Hangup` here, because a scheduler's `Stop` arrived at a yield of a library that never asked to be stopped and something had to be picked. Adding an `Event` to `monitor` or a `Wait` variant to either library then forces a guessed translation arm into every match over the merged union: events relevant only to one coroutine must be translated into something deliverable to every other, and the compiler flags nothing but non-exhaustiveness. Note also what the scheduler's own `match` in `on_yield` no longer sees: the libraries' distinctions were already lost in the `as_wait` translations.
 
 ## After
 
